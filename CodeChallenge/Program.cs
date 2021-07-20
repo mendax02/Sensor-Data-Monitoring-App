@@ -1,7 +1,5 @@
-﻿using System;
-using System.Threading;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Timers;
 using static System.Console;
 
 namespace CodeChallenge
@@ -24,7 +22,7 @@ namespace CodeChallenge
         ///     
         ///         Assert when a new Max value for 1 sensor is reached
         ///         Assert when a new Max value for all sensors is reached AND
-        ///             Show the difference between old highest value and the new highest 
+        ///         Show the difference between old highest value and the new highest 
         ///         Assert the order of events
         ///         
         ///     Constraints
@@ -35,48 +33,31 @@ namespace CodeChallenge
         /// 
         /// </summary>
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1806:Do not ignore method results", Justification = "<Pending>")]
         static async Task Main(string[] args)
         {
-            new Sensor(WriteLine, 1);
-            new Sensor(WriteLine, 10);
-            new Thread(
-                new ThreadStart(() => 
-                    new Sensor(WriteLine, 200)));         
+            var sensorSetupList = new List<SensorConfig> {
+                new SensorConfig { ThresholdLimit = 100, SensorId = "Titan-3330" },
+                new SensorConfig { ThresholdLimit = 100, SensorId = "DTM-3650" } ,
+                new SensorConfig { ThresholdLimit = 50, SensorId = "Rover-TM500"}
+             };
+
+            var sensorHub = new SensorHub();
+
+            foreach (var setupObj in sensorSetupList)
+            {
+                ISensor sensor = new Sensor(WriteLine, setupObj);
+                sensor.StartSensor();
+                sensorHub.RegisterSensor(sensor);
+            }
+            await Task.Delay(20000); // Mimic registration of new sensor during runtime
+            var newSensor = new Sensor(WriteLine, new SensorConfig { ThresholdLimit = 100, SensorId = "NewSensorRuntime" });
+            newSensor.StartSensor();
+            sensorHub.RegisterSensor(newSensor);
+
+            // new Thread(() => ReadLine()).Start();
 
             ReadLine();
         }
     }
 
-    class Sensor
-    {
-        public System.Timers.Timer timer;
-        public dynamic handler;
-
-        public Sensor(Action<Ping> doAThing, int seed)
-        {
-            handler = doAThing;
-            var random = new Random();
-            this.random = new Random(seed);
-
-            timer = new System.Timers.Timer(random.Next(999));
-            timer.Elapsed += Timer_Elapsed;
-            timer.Start();
-        }
-
-        private void Timer_Elapsed(object sender, ElapsedEventArgs e) => handler(emit());
-
-        protected Random random;
-        virtual public Ping emit() {
-            var packet = new Ping() { Now = DateTime.Parse(DateTime.Now.ToLongDateString()), Value = random.Next(100) };
-            Thread.Sleep(random.Next(100)); 
-            return packet; }
-    }
-
-    record Ping
-    {     
-        public string Source => Thread.CurrentThread.ManagedThreadId.ToString();
-        public DateTime Now; 
-        public float Value { get; init; }
-    }
 }
